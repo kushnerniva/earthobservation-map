@@ -3,3 +3,24 @@ title: "HahnBaadenLaurent_EarthObservationMAP"
 output: html_document
 ---
 
+## Setup
+```{r}
+## load necessary packages
+pck_list <- c("assertthat","tidyverse", "e1071", "viridisLite", "terra", "randomForest")
+lapply(pck_list, require, character.only = TRUE)
+rm(pck_list)
+
+knitr::opts_knit$set(root.dir = "~/earthobservation-map")
+
+```
+## Exploring STMs
+```{r}
+tcg <- rast("~/00_map_data/data/Sentinel-2/TSI_MZQ-CABO-DELGADO_2019-2023_SEN2_TCG.tif")
+tcb <- rast("~/00_map_data/data/Sentinel-2/TSI_MZQ-CABO-DELGADO_2019-2023_SEN2_TCB.tif")
+tcw <- rast("~/00_map_data/data/Sentinel-2/TSI_MZQ-CABO-DELGADO_2019-2023_SEN2_TCW.tif")
+```
+## Exploring Existing Data
+```{r}
+
+popapov <- rast("~/00_map_data/data/Potapov-etal-2021_global-cropland/Potapov-etal-2021_global-cropland_2019.tif")
+```
