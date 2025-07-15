@@ -6,7 +6,7 @@ output: html_document
 ## Setup
 ```{r}
 ## load necessary packages
-pck_list <- c("assertthat","tidyverse", "e1071", "viridisLite", "terra", "randomForest", "sf")
+pck_list <- c("assertthat","tidyverse", "e1071", "viridisLite", "terra", "randomForest", "sf", "tidyterra")
 lapply(pck_list, require, character.only = TRUE)
 rm(pck_list)
 
@@ -53,27 +53,60 @@ tct_20.21 <- subset_by_season(tct,
                               start_date = "2020-09-19",
                               end_date = "2021-08-25")
 
-# compute pixel-wise statistical summary
-derive_stm_metrics <- FALSE
+```
 
-if(derive_stm_metrics){
-  cat("Deriving temportal metrics for 2021 bands...\n")
-  
-  mean_21 <- app(tct_20.21, mean, na.rm = T)
-  sd_21 <- app(tct_20.21, sd, na.rm = T)
-  min_21 <- app(tct_20.21, min, na.rm = T)
-  max_21 <- app(tct_20.21, max, na.rm = T)
-  
-  tct_20.21_metrics <- c(mean_21, sd_21, min_21, max_21)
-  names(tct_20.21_metrics) <- paste0(rep(c("mean", "sd", "min", "max"),
-                                         each = nlyr(tct_20.21)), "_", names(tct_20.21))}else{
-  tct_20.21_metrics <- tct_20.21
-}
+```{r}
+# load training data
+training_path <- "~/00_map_data/data/cropland_init.gpkg"
 
+# read training data
+train_pts <- st_read(training_path)
 
+# reproject training pts
+train_pts <- st_transform(train_pts, crs(tct_20.21))
 
+# extract raster values
+train_vect <- vect(train_pts)
+extracted <- terra::extract(tct_20.21, train_vect)
 
+# create tibble of extract data
+training_data <- as_tibble(extracted, name_repair = T)
 
+# combine with class, 
+if ("ID" %in% names(training_data)) training_data <- training_data %>% select(-ID)
+training_data <- training_data %>% 
+  mutate(class = factor(train_pts$class, levels = c(1,2), labels = c("cropland","noncropland")))
+
+# remove rows w/ na obs
+training_data_clean <- training_data %>%
+  drop_na()
+```
+
+```{r}
+## TRAIN RANDOM FOREST MODEL
+# remove coordinate columns
+predictor_cols <- setdiff(names(training_data_clean), "class")
+cat("Predictor variables used: ", paste(predictor_cols, collapse = ", "), "\n")
+
+set.seed(123)
+
+rf_model <- randomForest(x = training_data_clean %>% select(all_of(predictor_cols)),
+                         y = training_data_clean$class,
+                         ntree = 500,
+                         importance = TRUE)
+print(rf_model)
+# Variable importance
+var_imp <- importance(rf_model)
+print(var_imp)
+# Optional: plot variable importance
+# varImpPlot(rf_model)
+```
+
+```{r}
+cat("Predicting classification map for 2021...\n")
+prediction_map <- predict(tc_all_20.21, rf_model, type = "prob", filename = "~/EarthObservation/Project/Results/prediction_tc_all_20-21.tif", overwrite = TRUE)
+cat("Saved prediction raster to '~/EarthObservation/Results/prediction_all_2021.tif'\n")
+plot(prediction_map)
 ```
 
 ```{r}
@@ -93,15 +126,28 @@ potapov <- rast("~/00_map_data/data/Potapov-etal-2021_global-cropland/Potapov-et
 
 # load comparison binary cropland (bofana et al)
 national_level <- rast("~/00_map_data/data/Mozambique_cropland_10m_2017_2019.tif")
+
 ```
 
+```{r}
+# load probability stack
+prob_stack <- rast("~/00_map_data/data/probabilities_tc_all_20-21.tif")
+
+# extract band
+cropland_band <- prob_stack[[1]] > 0.3 & prob_stack[[1]] < 0.7
+noncropland_band <- prob_stack[[2]] > 0.3 & prob_stack[[1]] < 0.7
+
+# build conditions for both bands
+
+
+prob.filtered <- mask(prob_stack, condition)
+
+writeRaster(prob.filtered, "~/00_map_data/data/filtered_prob.tif", overwrite = T)
+```
+
+```{r}
 # subset national-level raster
 national_level_crop <- terra::crop(national_level, mz_shp)
 national_level_final <- terra::mask(national_level_crop, mz_shp)
 writera
-```
-
-## Accuracy Assessment
-```{r}
-# 
 ```
