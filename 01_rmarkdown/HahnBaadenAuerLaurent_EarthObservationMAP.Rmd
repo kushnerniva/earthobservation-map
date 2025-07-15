@@ -13,14 +13,71 @@ rm(pck_list)
 knitr::opts_knit$set(root.dir = "~/earthobservation-map")
 
 ```
+
 ## Exploring STMs
 ```{r}
-# load stms
+# load tassled cap transformations: greenness, brightness, and wetness
 tcg <- rast("~/00_map_data/data/Sentinel-2/TSI_MZQ-CABO-DELGADO_2019-2023_SEN2_TCG.tif")
 tcb <- rast("~/00_map_data/data/Sentinel-2/TSI_MZQ-CABO-DELGADO_2019-2023_SEN2_TCB.tif")
 tcw <- rast("~/00_map_data/data/Sentinel-2/TSI_MZQ-CABO-DELGADO_2019-2023_SEN2_TCW.tif")
 
-# load country vectos
+# stack tcts
+tct <- c(tcb, tcg, tcw)
+
+# inspect tct band names
+tct_names <- names(tct)
+
+## FILTER BANDS BY GROWING SEASON 2020/2021
+## AUTHORS: SIMON HAHN & MORITZ BAADEN
+
+# create function
+subset_by_season <- function(rast,
+                             start_date,
+                             end_date,
+                             prefix = "TCW_")
+{
+  start_date <- as.Date(start_date)
+  end_date <- as.Date(end_date)
+  
+  all_names <- names(rast)
+  layer_dates <- as.Date(sub(prefix, "", all_names), format = 
+                           "%Y%m%d")
+  
+  idx <- which(layer_dates >= start_date & layer_dates <= end_date)
+  
+  rast[[idx]]
+}
+
+# subset raster stack for 2020/2021 growing season
+tct_20.21 <- subset_by_season(tct, 
+                              start_date = "2020-09-19",
+                              end_date = "2021-08-25")
+
+# compute pixel-wise statistical summary
+derive_stm_metrics <- FALSE
+
+if(derive_stm_metrics){
+  cat("Deriving temportal metrics for 2021 bands...\n")
+  
+  mean_21 <- app(tct_20.21, mean, na.rm = T)
+  sd_21 <- app(tct_20.21, sd, na.rm = T)
+  min_21 <- app(tct_20.21, min, na.rm = T)
+  max_21 <- app(tct_20.21, max, na.rm = T)
+  
+  tct_20.21_metrics <- c(mean_21, sd_21, min_21, max_21)
+  names(tct_20.21_metrics) <- paste0(rep(c("mean", "sd", "min", "max"),
+                                         each = nlyr(tct_20.21)), "_", names(tct_20.21))}else{
+  tct_20.21_metrics <- tct_20.21
+}
+
+
+
+
+
+```
+
+```{r}
+# load country vectors
 mz_geojson <- vect("~/00_map_data/data/mz.json")
 mz_shp <- vect("~/00_map_data/moz_admbnda_adm0_ine_20190607.shp")
 
@@ -36,6 +93,7 @@ potapov <- rast("~/00_map_data/data/Potapov-etal-2021_global-cropland/Potapov-et
 
 # load comparison binary cropland (bofana et al)
 national_level <- rast("~/00_map_data/data/Mozambique_cropland_10m_2017_2019.tif")
+```
 
 # subset national-level raster
 national_level_crop <- terra::crop(national_level, mz_shp)
