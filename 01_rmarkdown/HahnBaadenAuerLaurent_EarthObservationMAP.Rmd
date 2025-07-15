@@ -137,12 +137,14 @@ prob_stack <- rast("~/00_map_data/data/probabilities_tc_all_20-21.tif")
 cropland_band <- prob_stack[[1]] > 0.3 & prob_stack[[1]] < 0.7
 noncropland_band <- prob_stack[[2]] > 0.3 & prob_stack[[1]] < 0.7
 
-# build conditions for both bands
+filtered_raster <- mask(
+  prob_stack,
+  (prob_stack[[1]] > 0.3 & prob_stack[[1]] < 0.7) &
+  (prob_stack[[2]] > 0.3 & prob_stack[[2]] < 0.7),
+  maskvalues=FALSE
+)
 
-
-prob.filtered <- mask(prob_stack, condition)
-
-writeRaster(prob.filtered, "~/00_map_data/data/filtered_prob.tif", overwrite = T)
+writeRaster(filtered_raster, "~/00_map_data/data/filtered_prob.tif", overwrite = T)
 ```
 
 ```{r}
