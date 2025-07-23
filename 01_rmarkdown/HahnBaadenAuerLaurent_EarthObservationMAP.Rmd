@@ -127,29 +127,34 @@ potapov <- rast("~/00_map_data/data/Potapov-etal-2021_global-cropland/Potapov-et
 # load comparison binary cropland (bofana et al)
 national_level <- rast("~/00_map_data/data/Mozambique_cropland_10m_2017_2019.tif")
 
+# change crs of bofana 
+national_level <- terra::project(national_level, crs(tct))
+
 ```
 
 ```{r}
 # load probability stack
 prob_stack <- rast("~/00_map_data/data/probabilities_tc_all_20-21.tif")
 
-# extract band
-cropland_band <- prob_stack[[1]] > 0.3 & prob_stack[[1]] < 0.7
-noncropland_band <- prob_stack[[2]] > 0.3 & prob_stack[[1]] < 0.7
+# filter stack based on prob. value
 
-filtered_raster <- mask(
-  prob_stack,
+filtered_raster <- mask(prob_stack,
   (prob_stack[[1]] > 0.3 & prob_stack[[1]] < 0.7) &
   (prob_stack[[2]] > 0.3 & prob_stack[[2]] < 0.7),
-  maskvalues=FALSE
-)
+  maskvalues = F)
 
 writeRaster(filtered_raster, "~/00_map_data/data/filtered_prob.tif", overwrite = T)
 ```
 
 ```{r}
+# retrieve extent of national-level raster
+bofana_ext <- ext(tct)
+
 # subset national-level raster
-national_level_crop <- terra::crop(national_level, mz_shp)
-national_level_final <- terra::mask(national_level_crop, mz_shp)
-writera
+national_level_crop <- terra::crop(national_level, ext(tct))
+national_level_final <- terra::mask(national_level_crop, ext(tct))
+```
+
+```{r}
+writeRaster(national_level_final, "~/00_map_data/data/bofana_subset.tif", overwrite = T)
 ```
